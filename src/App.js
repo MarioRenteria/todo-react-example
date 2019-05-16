@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import * as classnames from 'classnames'
+import ReactCSSTransitionGroup from 'react-addons-css-transition-group';
 
 class App extends Component {
   render(){
@@ -12,11 +13,15 @@ class App extends Component {
         </header>
         <div className="Todo-container">
           <input ref={this.todoInput} onKeyUp={this.addTodo} type="text" className="todo-input" placeholder="What needs to be done"/>
-          
-          {this.state.todos.map((todo, index) =>
+          <ReactCSSTransitionGroup
+            transitionName="fade"
+            transitionEnterTimeout={300}
+            transitionLeaveTimeout={300}
+          >
+          {this.todosFiltered().map((todo, index) =>
             <div key={todo.id} className="todo-item">
               <div className="todo-item-left">
-                <input onChange={(event) => this.checkTodo(todo, index, event)} type="checkbox" />
+                <input checked={todo.completed} onChange={(event) => this.checkTodo(todo, index, event)} type="checkbox" />
                 {/*<div className={"todo-item-label " + (todo.completed ? 'completed' : '')}>{todo.title}</div>*/}
                 {!todo.editing && 
                 <div onDoubleClick={(event) => this.editTodo(todo, index, event)} className={classnames({'todo-item-label' : true, 'completed' : todo.completed})}>{todo.title}</div>
@@ -37,21 +42,29 @@ class App extends Component {
               </div>
             </div>
           )}
-
+          </ReactCSSTransitionGroup>
           <div className="extra-container">
-            <div><label><input type="checkbox"/> Check All</label></div>
-            <div>2 items left</div>
+            <div><label><input checked={!this.anyRemaining()} onChange={this.checkAllTodos} type="checkbox"/> Check All</label></div>
+            <div>{this.remaining()} items left</div>
           </div>
 
           <div className="extra-container">
             <div>
-              <button>All</button>
-              <button>Active</button>
-              <button>Completed</button>
+              <button className={classnames({'active': this.state.filter === 'all'})} onClick={() => this.updateFilter('all')}>All</button>
+              <button className={classnames({ 'active': this.state.filter === 'active' })} onClick={() => this.updateFilter('active')}>Active</button>
+              <button className={classnames({ 'active': this.state.filter === 'completed' })} onClick={() => this.updateFilter('completed')}>Completed</button>
             </div>
+            <ReactCSSTransitionGroup 
+            transitionName="fade" 
+            transitionEnterTimeout={300}
+            transitionLeaveTimeout={300}
+            >
+            {this.todosCompletedCount() > 0 && 
             <div>
-              <button>Clear Completed</button>
+              <button onClick={this.clearCompleted}>Clear Completed</button>
             </div>
+            }
+            </ReactCSSTransitionGroup>
           </div>
 
         </div> {/* End Todo-Container */}
@@ -62,6 +75,7 @@ class App extends Component {
   todoInput = React.createRef();
 
   state = {
+    filter: 'all',
     beforeEditCache: '',
     idForTodo: 3,
     todos:[
@@ -151,6 +165,49 @@ class App extends Component {
       todo.editing = false;
       todos.splice(index, 1, todo);
 
+      return { todos };
+    });
+  }
+
+  remaining = () => {
+    return this.state.todos.filter(todo => !todo.completed).length;
+  }
+
+  anyRemaining = () => {
+    return this.remaining() !== 0;
+  }
+
+  todosCompletedCount = () => {
+    return this.state.todos.filter(todo => todo.completed).length;
+  }
+
+  clearCompleted = () => {
+    this.setState((prevState, props) => {
+
+      return { todos: prevState.todos.filter(todo => !todo.completed) };
+    });
+  }
+
+  updateFilter = filter => {
+    this.setState({ filter });
+  }
+
+  todosFiltered = () => {
+    if(this.state.filter === 'all'){
+      return this.state.todos;
+    } else if(this.state.filter === 'active'){
+      return this.state.todos.filter(todo => !todo.completed);
+    } else if(this.state.filter === 'completed') {
+      return this.state.todos.filter(todo => todo.completed);
+    }
+    return this.state.todos;
+  }
+
+  checkAllTodos = (event) => {
+    event.persist();
+    this.setState((prevState, props) => {
+      let todos = prevState.todos;
+      todos.forEach((todo) => todo.completed = event.target.checked);
       return { todos };
     });
   }
